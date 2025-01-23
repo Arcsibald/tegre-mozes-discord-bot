@@ -151,34 +151,55 @@ async def crr(ctx):
 
 
 @bot.command()
-async def subscription_channel(ctx         : commands.context.Context,
-                               emoji       : str = None,
-                               message_body: str = None,
-                               role_name   : str = None,
-                               subs_channel: str = None):
+async def emojisub(ctx         : commands.context.Context,
+                   emoji       : str = None,
+                   message_body: str = None,
+                   role_name   : str = None,
+                   subs_channel_name: str = None):
 
     channel   = ctx.channel
 
     # Set default values
     if emoji is None:
-        emoji = ":eyes:"
+        emoji = "\N{EYES}"
     if message_body is None:
         message_body = f"Reagálj {emoji} emojival erre az üzenetre, hogy feliratkozz a {channel.name} csatornára"
     if role_name is None:
         role_name = f"feliratkozas-{channel.name}"
-    if subs_channel is None:
-        subs_channel = "feliratkozasok"
+    if subs_channel_name is None:
+        subs_channel_name = "feliratkozások"
     try:
-        raise ValueError("Tolmácsot szeretnék kérni")
+        print(f"Creating new role: {role_name}")
+        new_role = await ctx.guild.create_role(name=role_name)
+
+        print(f"Adding {role_name} to the channel")
+        await channel.set_permissions(new_role, read_messages=True, send_messages=True)
+
+        print(f"Setting channel {channel.name} private")
+        await channel.set_permissions(ctx.guild.default_role, read_messages=False, send_messages=False)
+
+        print(f"Sending subscription message to {subs_channel_name}")
+        subs_channel = discord.utils.get(ctx.guild.channels, name=subs_channel_name)
+        if not subs_channel:
+            raise ValueError(f"Nem találom a {subs_channel_name} csatornát")
+        sub_message = await subs_channel.send(message_body)
+        print (f"Adding reaction {emoji}")
+        await sub_message.add_reaction(emoji)
+
+        print(f"Saving the message to track reactions")
+        reaction_role_messages[sub_message.id] = {emoji : new_role.name}
+        save_reaction_role_messages()
+
     except Exception as e:
         error_msg = f"""Valami baj történt. Úgy értettem, a következő paramétereket adtad meg:
 - feliratkozós emoji: `{emoji}`
 - feliratkozó üzenet:
     > {message_body.replace("\n","\n    > ")}
 - létrehozandó rang neve: `{role_name}`
-- csatorna, ahol feliratkoznak majd erre: `{subs_channel}`
+- csatorna, ahol feliratkoznak majd erre: `{subs_channel_name}`
 A következő hibát kaptam: ```{str(e)}```"""
         await ctx.send(error_msg)
+        raise e
 
 
 

@@ -149,6 +149,11 @@ async def crr(ctx):
     """
     await ctx.send(f"Betöltött adat: {reaction_role_messages}")
 
+@bot.command()
+async def delete_role(ctx: commands.context.Context, role_name: str):
+        role = discord.utils.get(ctx.guild.roles, name=role_name)
+        await ctx.send(f"Deleting role {role.name}")
+        await role.delete()
 
 @bot.command()
 async def emojisub(ctx              : commands.context.Context,
@@ -163,7 +168,7 @@ async def emojisub(ctx              : commands.context.Context,
     if emoji is None:
         emoji = "\N{EYES}"
     if message_body is None:
-        message_body = f"Reagálj {emoji} emojival erre az üzenetre, hogy feliratkozz a {channel.name} csatornára"
+        message_body = f"Reagálj {emoji} emojival erre az üzenetre, hogy feliratkozz a(z) {channel.name} csatornára"
     if role_name is None:
         role_name = f"feliratkozas-{channel.name}"
     if subs_channel_name is None:
@@ -181,7 +186,7 @@ async def emojisub(ctx              : commands.context.Context,
         print(f"Sending subscription message to {subs_channel_name}")
         subs_channel = discord.utils.get(ctx.guild.channels, name=subs_channel_name)
         if not subs_channel:
-            raise ValueError(f"Nem találom a {subs_channel_name} csatornát")
+            raise ValueError(f"Nem találom a(z) {subs_channel_name} csatornát")
         sub_message = await subs_channel.send(message_body)
         print (f"Adding reaction {emoji}")
         await sub_message.add_reaction(emoji)
@@ -189,6 +194,8 @@ async def emojisub(ctx              : commands.context.Context,
         print(f"Saving the message to track reactions")
         reaction_role_messages[sub_message.id] = {emoji : new_role.name}
         save_reaction_role_messages()
+
+        await ctx.send("Siker!", delete_after=5)
 
     except Exception as e:
         error_msg = f"""Valami baj történt. Úgy értettem, a következő paramétereket adtad meg:

@@ -150,6 +150,39 @@ async def crr(ctx):
     await ctx.send(f"Betöltött adat: {reaction_role_messages}")
 
 
+@bot.command()
+async def subscription_channel(ctx         : commands.context.Context,
+                               emoji       : str = None,
+                               message_body: str = None,
+                               role_name   : str = None,
+                               subs_channel: str = None):
+
+    channel   = ctx.channel
+
+    # Set default values
+    if emoji is None:
+        emoji = ":eyes:"
+    if message_body is None:
+        message_body = f"Reagálj {emoji} emojival erre az üzenetre, hogy feliratkozz a {channel.name} csatornára"
+    if role_name is None:
+        role_name = f"feliratkozas-{channel.name}"
+    if subs_channel is None:
+        subs_channel = "feliratkozasok"
+    try:
+        raise ValueError("Tolmácsot szeretnék kérni")
+    except Exception as e:
+        error_msg = f"""Valami baj történt. Úgy értettem, a következő paramétereket adtad meg:
+- feliratkozós emoji: `{emoji}`
+- feliratkozó üzenet:
+    > {message_body.replace("\n","\n    > ")}
+- létrehozandó rang neve: `{role_name}`
+- csatorna, ahol feliratkoznak majd erre: `{subs_channel}`
+A következő hibát kaptam: ```{str(e)}```"""
+        await ctx.send(error_msg)
+
+
+
+
 """
 Managing member reactions on RR messages.
 """

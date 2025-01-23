@@ -151,10 +151,10 @@ async def crr(ctx):
 
 
 @bot.command()
-async def emojisub(ctx         : commands.context.Context,
-                   emoji       : str = None,
-                   message_body: str = None,
-                   role_name   : str = None,
+async def emojisub(ctx              : commands.context.Context,
+                   emoji            : str = None,
+                   message_body     : str = None,
+                   role_name        : str = None,
                    subs_channel_name: str = None):
 
     channel   = ctx.channel

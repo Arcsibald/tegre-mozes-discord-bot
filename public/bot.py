@@ -174,6 +174,35 @@ async def emojisub(ctx              : commands.context.Context,
     if subs_channel_name is None:
         subs_channel_name = "feliratkozások"
     try:
+
+        # Sanity checking
+        print(f"Check if we can react with the given emoji: {emoji}")
+        try:
+            await ctx.message.add_reaction(emoji)
+        except Exception as e:
+            raise ValueError(f"Nem sikerült az adott emojival reagálni.\n\nEredeti hibaüzenet:\n{str(e)}")
+        await ctx.message.remove_reaction(member=ctx.guild.me, emoji=emoji)
+
+        print(f"Check if the role {role_name} already exists")
+        if discord.utils.get(ctx.guild.roles, name=role_name) is not None:
+            raise ValueError(f"Már létezik {role_name} nevű rang a szerveren. Kérlek adj meg valami egyedit!")
+        
+        print(f"Check if the channel {subs_channel_name} exists")
+        subs_channel = discord.utils.get(ctx.guild.channels, name=subs_channel_name)
+        if not subs_channel:
+            raise ValueError(f"Nem létezik {subs_channel_name} nevű csatorna, így nem tudok feliratkozós üzenetet küldeni oda")
+
+        print(f"Check if we have permission to send message to channel {subs_channel_name}")
+        permissions = subs_channel.permissions_for(ctx.guild.me)
+        if not permissions.send_messages:
+            raise PermissionError(f"Nincs jogom üzenetet küldeni a megadott csatornára: {subs_channel_name}")
+        if not permissions.add_reactions:
+            raise PermissionError(f"Nincs jogom reakciókat adni a megadott csatornára: {subs_channel_name}")
+
+        if subs_channel == ctx.channel:
+            raise ValueError(f"Azt a csatornát fogom feliratkozóssá tenni, ahova a parancsot küldöd. Válassz egy másikat ahová a feliratkozós üzenetet küldhetem!")
+
+        # Perform functions
         print(f"Creating new role: {role_name}")
         new_role = await ctx.guild.create_role(name=role_name)
 
@@ -184,9 +213,6 @@ async def emojisub(ctx              : commands.context.Context,
         await channel.set_permissions(ctx.guild.default_role, read_messages=False, send_messages=False)
 
         print(f"Sending subscription message to {subs_channel_name}")
-        subs_channel = discord.utils.get(ctx.guild.channels, name=subs_channel_name)
-        if not subs_channel:
-            raise ValueError(f"Nem találom a(z) {subs_channel_name} csatornát")
         sub_message = await subs_channel.send(message_body)
         print (f"Adding reaction {emoji}")
         await sub_message.add_reaction(emoji)

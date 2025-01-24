@@ -182,7 +182,6 @@ async def emojisub(ctx              : commands.context.Context,
 
 
     try:
-
         # Sanity checking
         print(f"Check if we can react with the given emoji: {emoji}")
         try:
@@ -216,7 +215,6 @@ async def emojisub(ctx              : commands.context.Context,
         print(f"Creating new role: {role_name}")
         new_role = await ctx.guild.create_role(name=role_name)
         created_role = True
-
         print(f"Adding {role_name} to the channel")
         await channel.set_permissions(new_role, read_messages=True, send_messages=True)
 
@@ -227,9 +225,10 @@ async def emojisub(ctx              : commands.context.Context,
 
         print(f"Sending subscription message to {subs_channel_name}")
         sub_message = await subs_channel.send(message_body)
+        sent_sub_message = True
+
         print (f"Adding reaction {emoji}")
         await sub_message.add_reaction(emoji)
-        sent_sub_message = True
 
         print(f"Saving the message to track reactions")
         reaction_role_messages[sub_message.id] = {emoji : new_role.name}
@@ -248,33 +247,38 @@ async def emojisub(ctx              : commands.context.Context,
 A következő hibát kaptam: ```{str(e)}```"""
 
         # Try to clean up one step at a time.
-        # If any of the steps fail, keep trying with the other steps to clean up as much as possible.
+        # If any of the steps fail, keep trying the other steps to clean up as much as possible.
         # This is horrible, but I don't have a better idea
+        print("Cleaning up")
         try:
-            await ctx.send(error_msg)
+            if added_reaction_to_original_message:
+                await ctx.message.remove_reaction(member=ctx.guild.me, emoji=emoji)
+                print("Removed reaction")
         finally:
             try:
-                if added_reaction_to_original_message:
-                    await ctx.message.remove_reaction(member=ctx.guild.me, emoji=emoji)
+                if created_role:
+                    await new_role.delete()
+                    print("Deleted role")
             finally:
                 try:
-                    if created_role:
-                        await new_role.delete()
+                    if set_channel_permissions:
+                        await channel.set_permissions(ctx.guild.default_role, read_messages=old_permissions.read_messages, send_messages=old_permissions.send_messages)
+                        print("Reset permissions")
                 finally:
                     try:
-                        if set_channel_permissions:
-                            await channel.set_permissions(ctx.guild.default_role, old_permissions)
+                        if sent_sub_message:
+                            await sub_message.delete()
+                            print("Deleted sub message")
                     finally:
                         try:
-                            if sent_sub_message:
-                                await sub_message.delete()
+                            if saved_to_file:
+                                del reaction_role_messages[sub_message.id]
+                                save_reaction_role_messages()
+                                print("Removed saved reaction-role pair from file")
                         finally:
-                            try:
-                                if saved_to_file:
-                                    del reaction_role_messages[sub_message.id]
-                                    save_reaction_role_messages()
-                            finally:
-                                raise e
+                            await ctx.send(error_msg)
+                            print("Sent error message")
+                            raise e
 
 
 

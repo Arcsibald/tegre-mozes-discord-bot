@@ -150,18 +150,16 @@ async def crr(ctx):
     await ctx.send(f"Betöltött adat: {reaction_role_messages}")
 
 @bot.command()
-async def delete_role(ctx: commands.context.Context, role_name: str):
-        role = discord.utils.get(ctx.guild.roles, name=role_name)
-        await ctx.send(f"Deleting role {role.name}")
-        await role.delete()
-
-@bot.command()
 async def emojisub(ctx              : commands.context.Context,
                    emoji            : str = None,
                    message_body     : str = None,
                    role_name        : str = None,
                    subs_channel_name: str = None):
 
+    """
+    Command to turn a channel private and allow users to subscribe to it using emojis
+    Usage: !emojisub [emoji ["text of the message users will react to" [role_to_create [channel_to_post_subscription_message_to]]]]
+    """
     channel   = ctx.channel
 
     # Set default values
@@ -179,7 +177,6 @@ async def emojisub(ctx              : commands.context.Context,
     set_channel_permissions = False
     sent_sub_message = False
     saved_to_file = False
-
 
     try:
         # Sanity checking
@@ -238,7 +235,14 @@ async def emojisub(ctx              : commands.context.Context,
         await ctx.send("Siker!", delete_after=5)
 
     except Exception as e:
-        error_msg = f"""Valami baj történt. Úgy értettem, a következő paramétereket adtad meg:
+        error_msg = f"""Valami baj történt.
+Ez a parancs privátra fogja állítani a csatornát, ahova elküldöd és küld egy üzenetet egy másik csatornára amire reagálva feliratkozhattok.
+
+Így használd:
+`!emojisub emoji "üzenet szövege, amire majd a reakciók érkeznek" letrehozando_rang_neve csatorna_ahova_a_feliratkozos_uzenet_megy`
+A végéről bárhány paramétert elhagyhatsz, és akkor alapértelmezett értékeket fogok helyette használni.
+
+Úgy értettem, a következő paramétereket adtad meg:
 - feliratkozós emoji: `{emoji}`
 - feliratkozó üzenet:
     > {message_body.replace("\n","\n    > ")}

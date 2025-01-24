@@ -173,20 +173,30 @@ async def emojisub(ctx              : commands.context.Context,
         role_name = f"feliratkozas-{channel.name}"
     if subs_channel_name is None:
         subs_channel_name = "feliratkozások"
+
+    added_reaction_to_original_message = False
+    created_role = False
+    set_channel_permissions = False
+    sent_sub_message = False
+    saved_to_file = False
+
+
     try:
 
         # Sanity checking
         print(f"Check if we can react with the given emoji: {emoji}")
         try:
             await ctx.message.add_reaction(emoji)
+            added_reaction_to_original_message = True
         except Exception as e:
             raise ValueError(f"Nem sikerült az adott emojival reagálni.\n\nEredeti hibaüzenet:\n{str(e)}")
         await ctx.message.remove_reaction(member=ctx.guild.me, emoji=emoji)
+        added_reaction_to_original_message = False
 
         print(f"Check if the role {role_name} already exists")
         if discord.utils.get(ctx.guild.roles, name=role_name) is not None:
             raise ValueError(f"Már létezik {role_name} nevű rang a szerveren. Kérlek adj meg valami egyedit!")
-        
+
         print(f"Check if the channel {subs_channel_name} exists")
         subs_channel = discord.utils.get(ctx.guild.channels, name=subs_channel_name)
         if not subs_channel:
@@ -202,24 +212,29 @@ async def emojisub(ctx              : commands.context.Context,
         if subs_channel == ctx.channel:
             raise ValueError(f"Azt a csatornát fogom feliratkozóssá tenni, ahova a parancsot küldöd. Válassz egy másikat ahová a feliratkozós üzenetet küldhetem!")
 
-        # Perform functions
+        # Perform actual actions
         print(f"Creating new role: {role_name}")
         new_role = await ctx.guild.create_role(name=role_name)
+        created_role = True
 
         print(f"Adding {role_name} to the channel")
         await channel.set_permissions(new_role, read_messages=True, send_messages=True)
 
         print(f"Setting channel {channel.name} private")
+        old_permissions = channel.permissions_for(ctx.guild.default_role)
         await channel.set_permissions(ctx.guild.default_role, read_messages=False, send_messages=False)
+        set_channel_permissions = True
 
         print(f"Sending subscription message to {subs_channel_name}")
         sub_message = await subs_channel.send(message_body)
         print (f"Adding reaction {emoji}")
         await sub_message.add_reaction(emoji)
+        sent_sub_message = True
 
         print(f"Saving the message to track reactions")
         reaction_role_messages[sub_message.id] = {emoji : new_role.name}
         save_reaction_role_messages()
+        saved_to_file = True
 
         await ctx.send("Siker!", delete_after=5)
 
@@ -231,8 +246,35 @@ async def emojisub(ctx              : commands.context.Context,
 - létrehozandó rang neve: `{role_name}`
 - csatorna, ahol feliratkoznak majd erre: `{subs_channel_name}`
 A következő hibát kaptam: ```{str(e)}```"""
-        await ctx.send(error_msg)
-        raise e
+
+        # Try to clean up one step at a time.
+        # If any of the steps fail, keep trying with the other steps to clean up as much as possible.
+        # This is horrible, but I don't have a better idea
+        try:
+            await ctx.send(error_msg)
+        finally:
+            try:
+                if added_reaction_to_original_message:
+                    await ctx.message.remove_reaction(member=ctx.guild.me, emoji=emoji)
+            finally:
+                try:
+                    if created_role:
+                        await new_role.delete()
+                finally:
+                    try:
+                        if set_channel_permissions:
+                            await channel.set_permissions(ctx.guild.default_role, old_permissions)
+                    finally:
+                        try:
+                            if sent_sub_message:
+                                await sub_message.delete()
+                        finally:
+                            try:
+                                if saved_to_file:
+                                    del reaction_role_messages[sub_message.id]
+                                    save_reaction_role_messages()
+                            finally:
+                                raise e
 
 
 

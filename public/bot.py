@@ -150,18 +150,16 @@ async def crr(ctx):
     await ctx.send(f"Betöltött adat: {reaction_role_messages}")
 
 @bot.command()
-async def delete_role(ctx: commands.context.Context, role_name: str):
-        role = discord.utils.get(ctx.guild.roles, name=role_name)
-        await ctx.send(f"Deleting role {role.name}")
-        await role.delete()
-
-@bot.command()
 async def emojisub(ctx              : commands.context.Context,
                    emoji            : str = None,
                    message_body     : str = None,
                    role_name        : str = None,
                    subs_channel_name: str = None):
 
+    """
+    Command to turn a channel private and allow users to subscribe to it using emojis
+    Usage: !emojisub [emoji ["text of the message users will react to" [role_to_create [channel_to_post_subscription_message_to]]]]
+    """
     channel   = ctx.channel
 
     # Set default values
@@ -173,40 +171,118 @@ async def emojisub(ctx              : commands.context.Context,
         role_name = f"feliratkozas-{channel.name}"
     if subs_channel_name is None:
         subs_channel_name = "feliratkozások"
+
+    added_reaction_to_original_message = False
+    created_role = False
+    set_channel_permissions = False
+    sent_sub_message = False
+    saved_to_file = False
+
     try:
+        # Sanity checking
+        print(f"Check if we can react with the given emoji: {emoji}")
+        try:
+            await ctx.message.add_reaction(emoji)
+            added_reaction_to_original_message = True
+        except Exception as e:
+            raise ValueError(f"Nem sikerült az adott emojival reagálni.\n\nEredeti hibaüzenet:\n{str(e)}")
+        await ctx.message.remove_reaction(member=ctx.guild.me, emoji=emoji)
+        added_reaction_to_original_message = False
+
+        print(f"Check if the role {role_name} already exists")
+        if discord.utils.get(ctx.guild.roles, name=role_name) is not None:
+            raise ValueError(f"Már létezik {role_name} nevű rang a szerveren. Kérlek adj meg valami egyedit!")
+
+        print(f"Check if the channel {subs_channel_name} exists")
+        subs_channel = discord.utils.get(ctx.guild.channels, name=subs_channel_name)
+        if not subs_channel:
+            raise ValueError(f"Nem létezik {subs_channel_name} nevű csatorna, így nem tudok feliratkozós üzenetet küldeni oda")
+
+        print(f"Check if we have permission to send message to channel {subs_channel_name}")
+        permissions = subs_channel.permissions_for(ctx.guild.me)
+        if not permissions.send_messages:
+            raise PermissionError(f"Nincs jogom üzenetet küldeni a megadott csatornára: {subs_channel_name}")
+        if not permissions.add_reactions:
+            raise PermissionError(f"Nincs jogom reakciókat adni a megadott csatornára: {subs_channel_name}")
+
+        if subs_channel == ctx.channel:
+            raise ValueError(f"Azt a csatornát fogom feliratkozóssá tenni, ahova a parancsot küldöd. Válassz egy másikat ahová a feliratkozós üzenetet küldhetem!")
+
+        # Perform actual actions
         print(f"Creating new role: {role_name}")
         new_role = await ctx.guild.create_role(name=role_name)
-
+        created_role = True
         print(f"Adding {role_name} to the channel")
         await channel.set_permissions(new_role, read_messages=True, send_messages=True)
 
         print(f"Setting channel {channel.name} private")
+        old_permissions = channel.permissions_for(ctx.guild.default_role)
         await channel.set_permissions(ctx.guild.default_role, read_messages=False, send_messages=False)
+        set_channel_permissions = True
 
         print(f"Sending subscription message to {subs_channel_name}")
-        subs_channel = discord.utils.get(ctx.guild.channels, name=subs_channel_name)
-        if not subs_channel:
-            raise ValueError(f"Nem találom a(z) {subs_channel_name} csatornát")
         sub_message = await subs_channel.send(message_body)
+        sent_sub_message = True
+
         print (f"Adding reaction {emoji}")
         await sub_message.add_reaction(emoji)
 
         print(f"Saving the message to track reactions")
         reaction_role_messages[sub_message.id] = {emoji : new_role.name}
         save_reaction_role_messages()
+        saved_to_file = True
 
         await ctx.send("Siker!", delete_after=5)
 
     except Exception as e:
-        error_msg = f"""Valami baj történt. Úgy értettem, a következő paramétereket adtad meg:
+        error_msg = f"""Valami baj történt.
+Ez a parancs privátra fogja állítani a csatornát, ahova elküldöd és küld egy üzenetet egy másik csatornára amire reagálva feliratkozhattok.
+
+Így használd:
+`!emojisub emoji "üzenet szövege, amire majd a reakciók érkeznek" letrehozando_rang_neve csatorna_ahova_a_feliratkozos_uzenet_megy`
+A végéről bárhány paramétert elhagyhatsz, és akkor alapértelmezett értékeket fogok helyette használni.
+
+Úgy értettem, a következő paramétereket adtad meg:
 - feliratkozós emoji: `{emoji}`
 - feliratkozó üzenet:
     > {message_body.replace("\n","\n    > ")}
 - létrehozandó rang neve: `{role_name}`
 - csatorna, ahol feliratkoznak majd erre: `{subs_channel_name}`
 A következő hibát kaptam: ```{str(e)}```"""
-        await ctx.send(error_msg)
-        raise e
+
+        # Try to clean up one step at a time.
+        # If any of the steps fail, keep trying the other steps to clean up as much as possible.
+        # This is horrible, but I don't have a better idea
+        print("Cleaning up")
+        try:
+            if added_reaction_to_original_message:
+                await ctx.message.remove_reaction(member=ctx.guild.me, emoji=emoji)
+                print("Removed reaction")
+        finally:
+            try:
+                if created_role:
+                    await new_role.delete()
+                    print("Deleted role")
+            finally:
+                try:
+                    if set_channel_permissions:
+                        await channel.set_permissions(ctx.guild.default_role, read_messages=old_permissions.read_messages, send_messages=old_permissions.send_messages)
+                        print("Reset permissions")
+                finally:
+                    try:
+                        if sent_sub_message:
+                            await sub_message.delete()
+                            print("Deleted sub message")
+                    finally:
+                        try:
+                            if saved_to_file:
+                                del reaction_role_messages[sub_message.id]
+                                save_reaction_role_messages()
+                                print("Removed saved reaction-role pair from file")
+                        finally:
+                            await ctx.send(error_msg)
+                            print("Sent error message")
+                            raise e
 
 
 

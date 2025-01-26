@@ -327,6 +327,56 @@ async def on_raw_reaction_remove(payload):
                 print(f"Removed role `{role_name}` from {member.name} for removing reaction `{emoji}`")
 
 # -------------------------------------
+# Pinning messages
+# -------------------------------------
+
+@bot.command()
+async def pin(ctx):
+
+    """
+    Command to pin a message in a text channel or thread.
+    Usage: reply "!pin" to the message you want to pin.
+    """
+    # Check if command is a reply
+    if ctx.message.reference:
+        try:
+            replied_message = await ctx.channel.fetch_message(ctx.message.reference.message_id)
+            
+            # Pin message
+            await replied_message.pin()
+            if not replied_message.pinned:
+                await ctx.send("Hiba történt az üzenet kitűzése közben.")
+        except discord.Forbidden:
+            await ctx.send("(Nincs jogosultságom kitűzni ezt az üzenetet.)")
+    else:
+        await ctx.send("Kérlek, a !pin parancsot egy üzenetre válaszként küldd el.")
+
+@bot.command()
+async def unpin(ctx):
+
+    """
+    Command to unpin a pinned message in a text channel or thread.
+    Usage: reply "!unpin" to the pinned message you want to unpin.
+    """
+    # Check if command is a reply
+    if ctx.message.reference:
+        try:
+            replied_message = await ctx.channel.fetch_message(ctx.message.reference.message_id)
+            
+            # Check if the message is pinned
+            if replied_message.pinned:
+                # Unpin message
+                await replied_message.unpin()
+                if replied_message.pinned:
+                    await ctx.send("Hiba történt az üzenet kitűzésének megszüntetése közben.")
+            else:
+                await ctx.send("Ez az üzenet nincs kitűzve.")
+        except discord.Forbidden:
+            await ctx.send("(Nincs jogosultságom eltávolítani a kitűzést.)")
+    else:
+        await ctx.send("Kérlek, az !unpin parancsot egy kitűzött üzenetre válaszként küldd el.")
+
+# -------------------------------------
 # Running bot
 # -------------------------------------
 

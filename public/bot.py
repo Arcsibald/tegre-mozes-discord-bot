@@ -1,4 +1,5 @@
 import random
+from typing import Optional
 import discord
 from discord.ext import commands
 import os
@@ -375,6 +376,28 @@ async def unpin(ctx):
             await ctx.send("(Nincs jogosultságom eltávolítani a kitűzést.)")
     else:
         await ctx.send("Kérlek, az !unpin parancsot egy kitűzött üzenetre válaszként küldd el.")
+
+@bot.command()
+async def edit(ctx      : commands.context.Context,
+               new_body : Optional[str]):
+    """
+    Command to edit a message the bot has sent before
+    """
+    # Check if command is a reply
+    if ctx.message.reference:
+        try:
+            replied_message = await ctx.channel.fetch_message(ctx.message.reference.message_id)
+            if replied_message.author != ctx.me:
+                await ctx.send("Ezzel a paranccsal arra kérhetsz, hogy a saját üzeneteimet szerkesszem, más üzeneteit nem tudom.")
+            else:
+                if new_body is None:
+                    await ctx.send("Add meg, mi legyen az üzenet új szövege")
+                else:
+                    await replied_message.edit(content=new_body)
+        except discord.Forbidden:
+            await ctx.send("(Nincs jogosultságom szerkeszteni az üzenetet.)")
+    else:
+        await ctx.send("Kérlek, az !edit parancsot az egyik üzenetemre válaszként küldd el!")
 
 # -------------------------------------
 # Running bot

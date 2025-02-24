@@ -399,25 +399,6 @@ async def edit(ctx      : commands.context.Context,
     else:
         await ctx.send("Kérlek, az !edit parancsot az egyik üzenetemre válaszként küldd el!")
 
-def does_channel_have_reaction_roles(channel: discord.TextChannel):
-    for (message_id, emojimap) in reaction_role_messages.items():
-        for (emoji, role_name) in emojimap.items():
-            role = discord.utils.get(channel.guild.roles, name=role_name)
-            if channel.permissions_for(role).view_channel:
-                return True
-    return False
-
-@bot.event
-async def on_message(message: discord.Message):
-    "Notify when someone gets mentioned in a reaction-roles channel that they are not a member of"
-    if message.mentions:
-        if does_channel_have_reaction_roles(message.channel):
-            for mentioned_user in message.mentions:
-                user_can_view_channel = message.channel.permissions_for(mentioned_user).view_channel
-                if not user_can_view_channel:
-                    await mentioned_user.send(f"{message.author.display_name} megemlített téged a {message.channel.name} csatornában.")
-
-
 # -------------------------------------
 # Running bot
 # -------------------------------------
